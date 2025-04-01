@@ -20,7 +20,7 @@ def get_cached_result(cache_key: str):
 
 @router.get("/tao_dividends")
 async def get_tao_dividends(
-        netuid: str | None = None, hotkey: str | None = None, trade: bool = False
+    netuid: str | None = None, hotkey: str | None = None, trade: bool = False
 ):
     logger.info(
         f"Received request for tao_dividends with netuid={netuid}, hotkey={hotkey}, trade={trade}"

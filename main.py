@@ -1,18 +1,31 @@
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 
 from app.api.api import router as api_router
 from app.common.logging import setup_logging
+from app.construct import dividend_service
 
 # Initialize logging
 setup_logging(level="INFO")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: connect to Bittensor
+    await dividend_service.connect(warm_up=True)
+    yield
+    # Shutdown: close the connection
+    await dividend_service.close()
+
 
 # Initialize FastAPI app
 app = FastAPI(
     title="TaoPulse API",
     description="API for querying Tao dividends from the Bittensor blockchain",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 # Add CORS middleware

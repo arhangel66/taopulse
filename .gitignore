@@ -164,6 +164,3 @@ cython_debug/
 
 # ignore directory with name untracked
 untracked/
-
-# ignore task README
-task_README.md
