@@ -1,9 +1,12 @@
-import asyncio
 import re
+import time
 
 import aiohttp
 
+from app.common.logging import get_logger
+from app.trade.schemas import Tweet, SentimentResponse
 
+logger = get_logger(__name__)
 query = """
 You are an expert in sentiment analysis, specializing in social media content related to blockchain and AI technologies. Your task is to analyze a set of tweets about Bittensor and decentralized AI, providing an overall sentiment score and a concise explanation of your reasoning.
 
@@ -49,103 +52,109 @@ Remember to keep your analysis concise, focusing on the most significant insight
 """
 
 
-
 class SentimentService:
     def __init__(self, token: str):
         """Initialize the SentimentService with an API token.
-        
+
         Args:
             token: The API token for the LLM service
         """
         self.token = token
-        self.headers = {
-            "Authorization": "Bearer " + token,
-            "Content-Type": "application/json"
-        }
-        
-    async def invoke_chute(self, prompt: str, model: str = "unsloth/Llama-3.2-3B-Instruct", max_tokens: int = 2048, temperature: float = 0.7) -> dict:
+        self.headers = {"Authorization": "Bearer " + token, "Content-Type": "application/json"}
+
+    async def invoke_chute(
+        self,
+        prompt: str,
+        model: str = "unsloth/Llama-3.2-3B-Instruct",
+        max_tokens: int = 2048,
+        temperature: float = 0.7,
+    ) -> dict:
         """Invoke the LLM API to get a response.
-        
+
         Args:
             prompt: The prompt to send to the LLM
             model: The model to use
             max_tokens: Maximum number of tokens to generate
             temperature: Sampling temperature
-            
+
         Returns:
             The response message from the LLM
         """
         body = {
             "model": model,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
+            "messages": [{"role": "user", "content": prompt}],
             "stream": False,
             "max_tokens": max_tokens,
-            "temperature": temperature
+            "temperature": temperature,
         }
-        
+
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                    "https://llm.chutes.ai/v1/chat/completions",
-                    headers=self.headers,
-                    json=body
+                "https://llm.chutes.ai/v1/chat/completions", headers=self.headers, json=body
             ) as response:
                 data = await response.json()
-                return data['choices'][0]['message']
-    
-    async def sentiment_twits(self, twits: list[str]) -> int:
+                return data["choices"][0]["message"]
+
+    async def sentiment_tweets(self, tweets: list[Tweet]) -> SentimentResponse:
         """Analyze sentiment of a list of tweets.
-        
+
         Args:
-            twits: List of tweets to analyze
-            
+            tweets: List of tweets to analyze
+
         Returns:
             Sentiment score as an integer between -100 and +100
         """
-        cleaned_twits = [self.clean_twit(twit) for twit in twits]
-        if len(cleaned_twits) == 0:
-            return 0  # Default neutral score
-        final_query = query.format(TWEETS=cleaned_twits)
-        
+        logger.info(f"Analyzing sentiment of {len(tweets)} tweets")
+        t1 = time.time()
+        cleaned_tweets = [self.clean_twit(tweet.text) for tweet in tweets]
+        if len(cleaned_tweets) == 0:
+            return SentimentResponse(
+                sentiment=0,
+                is_success=False,
+                message="No tweets to analyze",
+                duration=time.time() - t1,
+                tweets_count=len(tweets),
+            )
+        final_query = query.format(TWEETS=cleaned_tweets)
+
         response = await self.invoke_chute(final_query)
-        
+
         # Extract the score from the response
-        content = response.get('content', '')
-        score_match = re.search(r'<score>\s*([+-]?\d+)\s*</score>', content)
-        
+        content = response.get("content", "")
+        score_match = re.search(r"<score>[\s\S]*?(\d+)[\s\S]*?</score>", content)
+
         if score_match:
-            return int(score_match.group(1))
+            return SentimentResponse(
+                sentiment=int(score_match.group(1)),
+                is_success=True,
+                message="Sentiment score extracted successfully",
+                duration=time.time() - t1,
+                tweets_count=len(tweets),
+            )
         else:
-            # If no score found, try to parse from the text
-            try:
-                # Look for numbers in the content
-                numbers = re.findall(r'[+-]?\d+', content)
-                if numbers:
-                    # Use the last number found as it's likely the final score
-                    return int(numbers[-1])
-                else:
-                    return 0  # Default neutral score
-            except Exception:
-                return 0  # Default neutral score
+            logger.error(f"Failed to extract sentiment score from content: {content}")
+            return SentimentResponse(
+                sentiment=0,
+                is_success=False,
+                message="Failed to extract sentiment score",
+                duration=time.time() - t1,
+                tweets_count=len(tweets),
+            )
 
     def clean_twit(self, twit: str) -> str:
         """
         Clean text by removing usernames, URLs, and special characters
         """
         # Remove usernames
-        text = re.sub(r'@\w+', '', twit)
+        text = re.sub(r"@\w+", "", twit)
 
         # Remove URLs
-        text = re.sub(r'https?://\S+', '', text)
+        text = re.sub(r"https?://\S+", "", text)
 
         # Convert hashtags to words (optional)
-        text = re.sub(r'#(\w+)', r'\1', text)
+        text = re.sub(r"#(\w+)", r"\1", text)
 
         # Remove extra whitespace
-        text = re.sub(r'\s+', ' ', text).strip()
+        text = re.sub(r"\s+", " ", text).strip()
 
         return text

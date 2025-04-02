@@ -23,3 +23,4 @@ bittensor==6.0.0
 btwallet==0.0.1
 aiohttp==3.9.1
 pydantic-settings==2.8.1
+bittensor-wallet==3.0.4

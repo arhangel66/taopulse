@@ -1,28 +1,39 @@
-from datetime import timedelta
+from datetime import timedelta, datetime
+from time import time
 from typing import List, Dict, Any, Optional
 
 import aiohttp
 
 from app.common.config import settings
+from app.common.logging import get_logger
 from app.common.utils import get_utc_now
+from app.trade.schemas import TweetResponse, Tweet
+
+logger = get_logger(__name__)
 
 
-class DaturaService():
+class TweetsService:
     def __init__(self, token: str):
         self.token = token
         self.base_url = "https://apis.datura.ai/twitter"
 
-    async def fetch_tweets(self, query: str, count: int = 10, start_date: Optional[str] = None,
-                           end_date: Optional[str] = None, min_likes: int = 0) -> List[Dict[str, Any]]:
+    async def fetch_tweets(
+        self,
+        query: str,
+        count: int = 10,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        min_likes: int = 0,
+    ) -> List[Dict[str, Any]]:
         """Fetch tweets from Twitter API.
-        
+
         Args:
             query: Search query string
             count: Number of tweets to retrieve
             start_date: Start date in YYYY-MM-DD format
             end_date: End date in YYYY-MM-DD format
             min_likes: Minimum number of likes
-            
+
         Returns:
             List of tweet objects
         """
@@ -45,13 +56,10 @@ class DaturaService():
             "min_retweets": 0,
             "sort": "Top",
             "start_date": start_date,
-            "count": count
+            "count": count,
         }
 
-        headers = {
-            "Authorization": f"{self.token}",
-            "Content-Type": "application/json"
-        }
+        headers = {"Authorization": f"{self.token}", "Content-Type": "application/json"}
 
         async with aiohttp.ClientSession() as session:
             async with session.post(self.base_url, json=payload, headers=headers) as response:
@@ -61,7 +69,7 @@ class DaturaService():
                     error_text = await response.text()
                     raise Exception(f"Twitter API error: {response.status} - {error_text}")
 
-    async def get_bittensor_tweets(self, netuid: int, count: int = 5) -> list[str]:
+    async def get_bittensor_tweets(self, netuid: int, count: int = 10) -> TweetResponse:
         """Fetch tweets related to Bittensor.
 
         Args:
@@ -71,19 +79,33 @@ class DaturaService():
         Returns:
             List of tweet objects
         """
+        logger.info(f"Fetching tweets for netuid {netuid}")
+        t1 = time()
         query = f"Bittensor netuid {netuid}"
 
         response = await self.fetch_tweets(query=query, count=count)
-        twitts = [twit["text"] for twit in response]
-        return twitts
+        tweets = [
+            Tweet(
+                text=twit["text"],
+                created_at=datetime.strptime(twit["created_at"], "%a %b %d %H:%M:%S %z %Y"),
+            )
+            for twit in response
+        ]
+        tweets = tweets[:count]
+        result = TweetResponse(
+            tweets=tweets,
+            duration=round(time() - t1, 2),
+        )
+        logger.info(f"Received {len(tweets)} tweets for netuid {netuid}")
+        return result
 
 
 if __name__ == "__main__":
+
     async def main():
-        service = DaturaService(settings.twitter_bearer_token)
+        service = TweetsService(settings.twitter_bearer_token)
         tweets = await service.get_bittensor_tweets(1)
         print(tweets)
-
 
     import asyncio
 

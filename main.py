@@ -4,8 +4,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.api.api import router as api_router
+from app.common.config import settings
+from app.common.context_middleware import LogContextMiddleware
 from app.common.logging import setup_logging
-from app.construct import dividend_service
+from app.construct import dividend_service, trade_service
 
 # Initialize logging
 setup_logging(level="INFO")
@@ -15,8 +17,11 @@ setup_logging(level="INFO")
 async def lifespan(app: FastAPI):
     # Startup: connect to Bittensor
     await dividend_service.connect(warm_up=True)
+    await trade_service.initialize(settings.wallet_password)
+
     yield
     # Shutdown: close the connection
+
     await dividend_service.close()
 
 
@@ -27,6 +32,9 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# Add context middleware (must be added before other middleware)
+app.add_middleware(LogContextMiddleware)
 
 # Add CORS middleware
 app.add_middleware(

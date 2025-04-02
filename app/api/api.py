@@ -1,9 +1,12 @@
 from fastapi import APIRouter
 
 from app.api.schemas import TaoDividentsResult
+from app.common.config import settings
 from app.common.logging import get_logger
 from app.common.utils import get_utc_now
-from app.construct import dividend_service, trade_service
+from app.construct import dividend_service, execute_service
+from app.common.context import update_log_context, generate_request_id
+from app.trade.schemas import ExecuteInput
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -22,8 +25,16 @@ def get_cached_result(cache_key: str):
 async def get_tao_dividends(
     netuid: str | None = None, hotkey: str | None = None, trade: bool = False
 ):
+    # Generate a request_id for this API call
+    request_id = generate_request_id()
+
+    # Update the log context with request-specific information
+    update_log_context(
+        request_id=request_id,
+    )
+
     logger.info(
-        f"Received request for tao_dividends with netuid={netuid}, hotkey={hotkey}, trade={trade}"
+        f"Received request for tao_dividends with netuid={netuid}, hotkey={hotkey}, trade={trade}, request_id={request_id}"
     )
     cache_key = f"{netuid}_{hotkey}"
     cached_result = get_cached_result(cache_key)
@@ -37,12 +48,16 @@ async def get_tao_dividends(
     logger.debug("Cache miss, querying blockchain")
     dividends = await dividend_service.get_dividends(netuid, hotkey)
 
-    netuid_for_trade = netuid if netuid else DEFAULT_NETUID
-    logger.debug(f"Processing trade with netuid={netuid_for_trade}, trade={trade}")
-    trade_result = await trade_service.trade(netuid_for_trade, trade)
+    execute_input = ExecuteInput(
+        request_id=request_id,
+        trade=trade,
+        netuid=netuid or settings.default_netuid,
+        hotkey=hotkey or settings.default_hotkey,
+    )
+    execute_instant = await execute_service.trade(execute_input)
 
     result = TaoDividentsResult(
-        dividends=dividends, cached=False, collected_at=get_utc_now(), trade=trade_result
+        dividends=dividends, cached=False, collected_at=get_utc_now(), trade=execute_instant
     )
     # save to cache
     logger.info("Returning fresh result")
