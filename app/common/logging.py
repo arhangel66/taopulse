@@ -2,6 +2,24 @@ import logging
 import sys
 from typing import Optional
 
+from app.common.context import get_log_context
+
+
+class ContextAwareFormatter(logging.Formatter):
+    """
+    Custom log formatter that includes context information in log messages.
+    """
+
+    def format(self, record):
+        context = get_log_context()
+        original_msg = super().format(record)
+
+        # Add request_id to the log message if available
+        if context.get("request_id"):
+            return f"[request_id: {context['request_id']}] {original_msg}"
+
+        return original_msg
+
 
 def setup_logging(level: str = "INFO", log_file: Optional[str] = None) -> None:
     """
@@ -21,18 +39,22 @@ def setup_logging(level: str = "INFO", log_file: Optional[str] = None) -> None:
     if log_file:
         handlers.append(logging.FileHandler(log_file))
 
-    # Configure logging format
-    logging.basicConfig(
-        level=numeric_level,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=handlers,
-    )
+    # Create formatter
+    formatter = ContextAwareFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
+    # Configure root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(numeric_level)
+
+    # Clear existing handlers and add new ones
+    root_logger.handlers.clear()
+    for handler in handlers:
+        handler.setFormatter(formatter)
+        root_logger.addHandler(handler)
 
     # Suppress noisy loggers
     logging.getLogger("asyncio").setLevel(logging.WARNING)
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
-
-    logging.info(f"Logging initialized with level {level}")
 
 
 def get_logger(name: str) -> logging.Logger:
