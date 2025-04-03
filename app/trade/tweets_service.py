@@ -79,25 +79,54 @@ class TweetsService:
         Returns:
             List of tweet objects
         """
-        logger.info(f"Fetching tweets for netuid {netuid}")
         t1 = time()
-        query = f"Bittensor netuid {netuid}"
+        try:
+            logger.info(f"Fetching tweets for netuid {netuid}")
 
-        response = await self.fetch_tweets(query=query, count=count)
-        tweets = [
-            Tweet(
-                text=twit["text"],
-                created_at=datetime.strptime(twit["created_at"], "%a %b %d %H:%M:%S %z %Y"),
+            query = f"Bittensor netuid {netuid}"
+
+            response = await self.fetch_tweets(query=query, count=count)
+            tweets = [
+                Tweet(
+                    text=twit["text"],
+                    created_at=datetime.strptime(twit["created_at"], "%a %b %d %H:%M:%S %z %Y"),
+                )
+                for twit in response
+            ]
+            tweets = tweets[:count]
+            result = TweetResponse(
+                tweets=tweets,
+                duration=round(time() - t1, 2),
             )
-            for twit in response
+            logger.info(f"Received {len(tweets)} tweets for netuid {netuid}")
+            return result
+        except Exception as e:
+            logger.error(f"Error fetching tweets: {e}")
+            return TweetResponse(
+                tweets=[],
+                duration=round(time() - t1, 2),
+                message=str(e),
+                is_success=False,
+            )
+
+
+class TweetsServiceMocked(TweetsService):
+    async def fetch_tweets(
+        self,
+        query: str,
+        count: int = 10,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        min_likes: int = 0,
+    ) -> List[Dict[str, Any]]:
+        """Mocked function to fetch tweets from Twitter API."""
+        return [
+            {
+                "text": "this is good",
+                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            }
+            for _ in range(count)
         ]
-        tweets = tweets[:count]
-        result = TweetResponse(
-            tweets=tweets,
-            duration=round(time() - t1, 2),
-        )
-        logger.info(f"Received {len(tweets)} tweets for netuid {netuid}")
-        return result
 
 
 if __name__ == "__main__":

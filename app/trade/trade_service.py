@@ -100,6 +100,7 @@ class TradeService:
             return result
 
     async def unstake(self, amount, amount_tao, hotkey, netuid_for_trade, result):
+        logger.info(f"Unstaking {amount_tao} TAO from {hotkey} on netuid {netuid_for_trade}")
         result.action = ActionEnum.unstake
         async with AsyncSubtensor(network=self.network) as subtensor:
             success = await subtensor.unstake(
@@ -118,6 +119,7 @@ class TradeService:
         return result
 
     async def add_stake(self, amount, amount_tao, hotkey, netuid_for_trade, result):
+        logger.info(f"Adding stake of {amount_tao} TAO to {hotkey} on netuid {netuid_for_trade}")
         result.action = ActionEnum.stake
         async with AsyncSubtensor(network=self.network) as subtensor:
             success = await subtensor.add_stake(
