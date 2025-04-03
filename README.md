@@ -2,6 +2,9 @@
 
 TaoPulse is an asynchronous API service for querying Tao dividends from the Bittensor blockchain with Redis caching and PostgreSQL storage.
 
+https://www.loom.com/share/c11f57a3277b402dbfadbb3c935e2bf4  - running project and testing endpoints
+https://www.loom.com/share/c1a82ef6b9c1437a92065dca3b53423f - load testing and implementation details
+
 ## Features
 
 - FastAPI endpoint to query Tao dividends from the Bittensor blockchain
