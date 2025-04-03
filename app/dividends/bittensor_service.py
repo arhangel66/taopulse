@@ -89,7 +89,7 @@ class DividendService:
 
     async def get_dividends(
         self, netuid: Optional[int] = None, hotkey: Optional[str] = None
-    ) -> dict[int, dict[str, int]]:
+    ) -> dict[str, dict[str, int]]:
         """
         Query TAO dividends from the blockchain.
 
@@ -135,7 +135,7 @@ class DividendService:
             subnet_results = await asyncio.gather(*tasks)
 
             # Organize results by netuid
-            results = {net_id: result for net_id, result in zip(netuids, subnet_results)}
+            results = {str(net_id): result for net_id, result in zip(netuids, subnet_results)}
 
             elapsed = time.time() - start
             logger.info(

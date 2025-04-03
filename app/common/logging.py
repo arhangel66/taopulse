@@ -1,6 +1,7 @@
 import logging
 import sys
 from typing import Optional
+import os
 
 from app.common.context import get_log_context
 
@@ -33,6 +34,12 @@ def setup_logging(level: str = "INFO", log_file: Optional[str] = None) -> None:
     numeric_level = getattr(logging, level.upper(), None)
     if not isinstance(numeric_level, int):
         raise ValueError(f"Invalid log level: {level}")
+
+    # Force the use of the 'fork' start method in Docker to avoid multiprocessing issues
+    if os.environ.get('PYTHONMULTIPROCESSING') == '1':
+        import multiprocessing
+        # Use 'fork' method for multiprocessing which is more compatible with Docker
+        multiprocessing.set_start_method('fork', force=True)
 
     # Configure handlers
     handlers = [logging.StreamHandler(sys.stdout)]

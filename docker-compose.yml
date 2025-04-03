@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  taopulse:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - ~/.bittensor:/root/.bittensor
+    env_file:
+      - .env
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONMULTIPROCESSING=1
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/taopulse
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - taopulse-network
+    command: python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload --use-colors
+
+  redis:
+    image: redis:6.2-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis-data:/data
+    networks:
+      - taopulse-network
+
+  postgres:
+    image: postgres:13-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=taopulse
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - taopulse-network
+
+networks:
+  taopulse-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  postgres-data:
