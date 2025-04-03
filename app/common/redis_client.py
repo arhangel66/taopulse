@@ -56,9 +56,10 @@ class RedisClient:
             bool: True if the value was set successfully, False otherwise
         """
         try:
-            client = cls.get_client()
+
             ttl = ttl or settings.cache_ttl
             serialized_value = orjson.dumps(value, default=jsonable_encoder)
+            client = cls.get_client()
             result = client.set(key, serialized_value, ex=ttl)
             logger.debug(f"Cache set: {key} (TTL: {ttl}s)")
             return result

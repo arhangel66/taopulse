@@ -16,6 +16,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - PYTHONMULTIPROCESSING=1
+      # Uppercase environment variables for Pydantic
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/taopulse
